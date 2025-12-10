@@ -1,0 +1,22 @@
+# Source files (use dist)
+src/
+tests/
+
+# Config files
+.github/
+.husky/
+.changeset/
+.vscode/
+.idea/
+
+# Test and dev files
+vitest.config.ts
+eslint.config.js
+prettier.config.js
+tsconfig.json
+tsup.config.ts
+coverage/
+
+# Misc
+*.log
+.DS_Store
