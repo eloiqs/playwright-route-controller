@@ -1,5 +1,11 @@
 # playwright-route-controller
 
+## 0.2.3
+
+### Patch Changes
+
+- ca33f4d: test
+
 ## 0.2.2
 
 ### Patch Changes
