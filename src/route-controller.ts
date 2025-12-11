@@ -23,6 +23,13 @@ interface PendingRequest {
   timestamp: number;
 }
 
+/**
+ * Selector for targeting a specific pending request.
+ * - `number`: Index into the pending requests array (0 = oldest)
+ * - `function`: Predicate function that receives the Request and returns true for the target
+ */
+export type RequestSelector = number | ((request: Request) => boolean);
+
 export interface RouteControllerOptions {
   /** Timeout in milliseconds. If set, pending requests will auto-continue after timeout. */
   timeout?: number;
@@ -57,12 +64,29 @@ export class RouteController {
   constructor(private readonly config?: RouteControllerOptions) {}
 
   /**
+   * Find a pending request by selector.
+   * @param selector - Index or predicate function. Defaults to 0 (oldest request).
+   * @returns The pending request or undefined if not found.
+   */
+  private findRequest(
+    selector: RequestSelector = 0
+  ): PendingRequest | undefined {
+    if (typeof selector === 'number') {
+      return this.pendingRequests[selector];
+    }
+    return this.pendingRequests.find((req) => selector(req.route.request()));
+  }
+
+  /**
    * Handle an intercepted route. Call this from page.route() callback.
    * Non-matching requests (based on method and match options) are automatically continued.
    */
   async handle(route: Route): Promise<void> {
     // Check method filter
-    if (this.config?.method && route.request().method() !== this.config.method) {
+    if (
+      this.config?.method &&
+      route.request().method() !== this.config.method
+    ) {
       return route.continue();
     }
 
@@ -135,12 +159,19 @@ export class RouteController {
   }
 
   /**
-   * Abort the oldest pending request.
-   * @returns true if a request was aborted, false if no pending requests
+   * Abort a pending request.
+   * @param errorCode - Optional error code to pass to route.abort()
+   * @param selector - Optional index or predicate to select which request. Defaults to oldest (index 0).
+   * @returns true if a request was aborted, false if no matching request
    */
-  abort(...args: Parameters<Route['abort']>): boolean {
-    const request = this.pendingRequests[0];
+  abort(
+    errorCode?: Parameters<Route['abort']>[0],
+    selector?: RequestSelector
+  ): boolean {
+    const request = this.findRequest(selector);
     if (request) {
+      const args: Parameters<Route['abort']> =
+        errorCode !== undefined ? [errorCode] : [];
       request.resolve(['abort', args]);
       return true;
     }
@@ -148,12 +179,19 @@ export class RouteController {
   }
 
   /**
-   * Continue the oldest pending request.
-   * @returns true if a request was continued, false if no pending requests
+   * Continue a pending request.
+   * @param overrides - Optional overrides to pass to route.continue()
+   * @param selector - Optional index or predicate to select which request. Defaults to oldest (index 0).
+   * @returns true if a request was continued, false if no matching request
    */
-  continue(...args: Parameters<Route['continue']>): boolean {
-    const request = this.pendingRequests[0];
+  continue(
+    overrides?: Parameters<Route['continue']>[0],
+    selector?: RequestSelector
+  ): boolean {
+    const request = this.findRequest(selector);
     if (request) {
+      const args: Parameters<Route['continue']> =
+        overrides !== undefined ? [overrides] : [];
       request.resolve(['continue', args]);
       return true;
     }
@@ -161,25 +199,37 @@ export class RouteController {
   }
 
   /**
-   * Fulfill the oldest pending request.
-   * @returns true if a request was fulfilled, false if no pending requests
+   * Fulfill a pending request with a custom response.
+   * @param response - Response to pass to route.fulfill()
+   * @param selector - Optional index or predicate to select which request. Defaults to oldest (index 0).
+   * @returns true if a request was fulfilled, false if no matching request
    */
-  fulfill(...args: Parameters<Route['fulfill']>): boolean {
-    const request = this.pendingRequests[0];
+  fulfill(
+    response: Parameters<Route['fulfill']>[0],
+    selector?: RequestSelector
+  ): boolean {
+    const request = this.findRequest(selector);
     if (request) {
-      request.resolve(['fulfill', args]);
+      request.resolve(['fulfill', [response]]);
       return true;
     }
     return false;
   }
 
   /**
-   * Fallback the oldest pending request.
-   * @returns true if a request was fallbacked, false if no pending requests
+   * Fallback a pending request to the next route handler.
+   * @param overrides - Optional overrides to pass to route.fallback()
+   * @param selector - Optional index or predicate to select which request. Defaults to oldest (index 0).
+   * @returns true if a request was fallbacked, false if no matching request
    */
-  fallback(...args: Parameters<Route['fallback']>): boolean {
-    const request = this.pendingRequests[0];
+  fallback(
+    overrides?: Parameters<Route['fallback']>[0],
+    selector?: RequestSelector
+  ): boolean {
+    const request = this.findRequest(selector);
     if (request) {
+      const args: Parameters<Route['fallback']> =
+        overrides !== undefined ? [overrides] : [];
       request.resolve(['fallback', args]);
       return true;
     }

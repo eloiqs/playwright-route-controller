@@ -316,6 +316,223 @@ describe('RouteController', () => {
     });
   });
 
+  describe('request selector', () => {
+    describe('index selector', () => {
+      it('should abort request at specific index', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute({ url: 'https://example.com/first' });
+        const mockRoute2 = createMockRoute({ url: 'https://example.com/second' });
+        const mockRoute3 = createMockRoute({ url: 'https://example.com/third' });
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+        const handlePromise3 = controller.handle(mockRoute3);
+
+        expect(controller.pendingCount).toBe(3);
+
+        // Abort the second request (index 1)
+        controller.abort(undefined, 1);
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(2);
+        expect(mockRoute1.abort).not.toHaveBeenCalled();
+        expect(mockRoute2.abort).toHaveBeenCalled();
+        expect(mockRoute3.abort).not.toHaveBeenCalled();
+
+        controller.continueAll();
+        await Promise.all([handlePromise1, handlePromise3]);
+      });
+
+      it('should continue request at specific index', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute();
+        const mockRoute2 = createMockRoute();
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+
+        // Continue the second request (index 1)
+        controller.continue(undefined, 1);
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(1);
+        expect(mockRoute2.continue).toHaveBeenCalled();
+
+        controller.continue();
+        await handlePromise1;
+      });
+
+      it('should fulfill request at specific index', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute();
+        const mockRoute2 = createMockRoute();
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+
+        // Fulfill the second request (index 1)
+        const response = { status: 200, body: 'OK' };
+        controller.fulfill(response, 1);
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(1);
+        expect(mockRoute2.fulfill).toHaveBeenCalledWith(response);
+
+        controller.continue();
+        await handlePromise1;
+      });
+
+      it('should return false for out-of-bounds index', () => {
+        controller = new RouteController();
+        const mockRoute = createMockRoute();
+
+        controller.handle(mockRoute);
+
+        const result = controller.abort(undefined, 5);
+        expect(result).toBe(false);
+
+        controller.continue();
+      });
+    });
+
+    describe('predicate selector', () => {
+      it('should abort request matching predicate', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute({ url: 'https://example.com/users' });
+        const mockRoute2 = createMockRoute({ url: 'https://example.com/posts' });
+        const mockRoute3 = createMockRoute({ url: 'https://example.com/comments' });
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+        const handlePromise3 = controller.handle(mockRoute3);
+
+        // Abort the request to /posts
+        controller.abort(undefined, (req) => req.url().includes('/posts'));
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(2);
+        expect(mockRoute1.abort).not.toHaveBeenCalled();
+        expect(mockRoute2.abort).toHaveBeenCalled();
+        expect(mockRoute3.abort).not.toHaveBeenCalled();
+
+        controller.continueAll();
+        await Promise.all([handlePromise1, handlePromise3]);
+      });
+
+      it('should continue request matching predicate', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute({ method: 'GET' });
+        const mockRoute2 = createMockRoute({ method: 'POST' });
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+
+        // Continue the POST request
+        controller.continue(undefined, (req) => req.method() === 'POST');
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(1);
+        expect(mockRoute2.continue).toHaveBeenCalled();
+
+        controller.continue();
+        await handlePromise1;
+      });
+
+      it('should fulfill request matching predicate', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute({ url: 'https://example.com/api/v1' });
+        const mockRoute2 = createMockRoute({ url: 'https://example.com/api/v2' });
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+
+        // Fulfill the v2 request
+        const response = { status: 200, body: 'v2 response' };
+        controller.fulfill(response, (req) => req.url().includes('/v2'));
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(1);
+        expect(mockRoute2.fulfill).toHaveBeenCalledWith(response);
+
+        controller.continue();
+        await handlePromise1;
+      });
+
+      it('should return false when no request matches predicate', () => {
+        controller = new RouteController();
+        const mockRoute = createMockRoute({ url: 'https://example.com/users' });
+
+        controller.handle(mockRoute);
+
+        const result = controller.abort(undefined, (req) =>
+          req.url().includes('/nonexistent')
+        );
+        expect(result).toBe(false);
+
+        controller.continue();
+      });
+
+      it('should select first matching request when multiple match', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute({ url: 'https://example.com/api/1' });
+        const mockRoute2 = createMockRoute({ url: 'https://example.com/api/2' });
+        const mockRoute3 = createMockRoute({ url: 'https://example.com/other' });
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+        const handlePromise3 = controller.handle(mockRoute3);
+
+        // Both /api/1 and /api/2 match, should abort the first one
+        controller.abort(undefined, (req) => req.url().includes('/api/'));
+        await handlePromise1;
+
+        expect(controller.pendingCount).toBe(2);
+        expect(mockRoute1.abort).toHaveBeenCalled();
+        expect(mockRoute2.abort).not.toHaveBeenCalled();
+
+        controller.continueAll();
+        await Promise.all([handlePromise2, handlePromise3]);
+      });
+    });
+
+    describe('fallback with selector', () => {
+      it('should fallback request at specific index', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute();
+        const mockRoute2 = createMockRoute();
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+
+        controller.fallback(undefined, 1);
+        await handlePromise2;
+
+        expect(controller.pendingCount).toBe(1);
+        expect(mockRoute2.fallback).toHaveBeenCalled();
+
+        controller.continue();
+        await handlePromise1;
+      });
+
+      it('should fallback request matching predicate', async () => {
+        controller = new RouteController();
+        const mockRoute1 = createMockRoute({ url: 'https://example.com/a' });
+        const mockRoute2 = createMockRoute({ url: 'https://example.com/b' });
+
+        const handlePromise1 = controller.handle(mockRoute1);
+        const handlePromise2 = controller.handle(mockRoute2);
+
+        controller.fallback(undefined, (req) => req.url().endsWith('/b'));
+        await handlePromise2;
+
+        expect(mockRoute2.fallback).toHaveBeenCalled();
+
+        controller.continue();
+        await handlePromise1;
+      });
+    });
+  });
+
   describe('abortAll()', () => {
     it('should abort all pending requests', async () => {
       controller = new RouteController();

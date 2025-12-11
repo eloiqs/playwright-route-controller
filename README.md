@@ -75,6 +75,17 @@ Create a new RouteController instance.
 
 **HttpMethod:** `'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'CONNECT' | 'TRACE'`
 
+#### Request Selector
+
+Several methods accept an optional `selector` parameter to target a specific pending request:
+
+| Selector Type | Description                                                              |
+| ------------- | ------------------------------------------------------------------------ |
+| `number`      | Index into the pending requests array (0 = oldest)                       |
+| `function`    | Predicate function `(request: Request) => boolean` to find the request   |
+
+If no selector is provided, the oldest pending request (index 0) is used.
+
 ### `controller.handle(route)`
 
 Handle an intercepted route. Call this from `page.route()` callback.
@@ -83,32 +94,46 @@ Handle an intercepted route. Call this from `page.route()` callback.
 await page.route('**/api/**', (route) => controller.handle(route));
 ```
 
-### `controller.abort()`
+### `controller.abort(errorCode?, selector?)`
 
-Abort the oldest pending request.
+Abort a pending request.
 
 ```typescript
-const aborted = controller.abort(); // Returns true if a request was aborted
+controller.abort(); // Abort oldest request
+controller.abort('connectionrefused'); // Abort with error code
+controller.abort(undefined, 1); // Abort request at index 1
+controller.abort(undefined, (req) => req.url().includes('/users')); // Abort by predicate
 ```
 
-### `controller.continue()`
+### `controller.continue(overrides?, selector?)`
 
-Continue the oldest pending request.
+Continue a pending request.
 
 ```typescript
-const continued = controller.continue(); // Returns true if a request was continued
+controller.continue(); // Continue oldest request
+controller.continue({ headers: { 'X-Custom': 'value' } }); // Continue with overrides
+controller.continue(undefined, 1); // Continue request at index 1
+controller.continue(undefined, (req) => req.method() === 'POST'); // Continue by predicate
 ```
 
-### `controller.fulfill(response)`
+### `controller.fulfill(response, selector?)`
 
-Fulfill the oldest pending request with a custom response.
+Fulfill a pending request with a custom response.
 
 ```typescript
-controller.fulfill({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({ success: true }),
-});
+controller.fulfill({ status: 200, body: 'OK' }); // Fulfill oldest request
+controller.fulfill({ status: 404 }, 1); // Fulfill request at index 1
+controller.fulfill({ status: 200 }, (req) => req.url().includes('/api')); // Fulfill by predicate
+```
+
+### `controller.fallback(overrides?, selector?)`
+
+Fallback a pending request to the next route handler.
+
+```typescript
+controller.fallback(); // Fallback oldest request
+controller.fallback(undefined, 1); // Fallback request at index 1
+controller.fallback(undefined, (req) => req.url().includes('/legacy')); // Fallback by predicate
 ```
 
 ### `controller.abortAll()`
@@ -283,6 +308,34 @@ test('fails if unexpected requests are made', async ({ page }) => {
 
   // If a second request is made, handle() will throw an error
   // This helps catch bugs like duplicate form submissions
+});
+```
+
+### Targeting Specific Requests with Selectors
+
+```typescript
+test('handle multiple concurrent requests differently', async ({ page }) => {
+  const controller = new RouteController();
+  await page.route('**/api/**', (route) => controller.handle(route));
+
+  await page.goto('/dashboard');
+
+  // Multiple requests are made concurrently
+  // e.g., /api/users, /api/posts, /api/notifications
+
+  await controller.waitForPending();
+
+  // Fulfill the users request with mock data
+  controller.fulfill(
+    { status: 200, body: JSON.stringify([{ id: 1, name: 'Alice' }]) },
+    (req) => req.url().includes('/users')
+  );
+
+  // Abort the notifications request to test error handling
+  controller.abort(undefined, (req) => req.url().includes('/notifications'));
+
+  // Continue the posts request normally
+  controller.continue(undefined, (req) => req.url().includes('/posts'));
 });
 ```
 
