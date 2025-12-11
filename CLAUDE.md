@@ -27,6 +27,7 @@ The library exports a single class `RouteController` from `src/route-controller.
 - **FIFO processing**: Actions like `abort()`, `continue()`, `fulfill()` operate on the oldest pending request (index 0).
 - **Filtering**: Requests can be filtered by HTTP method (`method` option) or custom match function (`match` option). Non-matching requests auto-continue.
 - **Timeout handling**: Optional auto-continue after timeout, tracked in `timeoutIds` Map per request.
+- **Request count enforcement**: Optional `expectedRequests` limit throws an error when exceeded, helping catch duplicate request bugs.
 
 Tests use Vitest with mocked Playwright types (`tests/mocks/playwright-mocks.ts`) rather than actual browser automation.
 

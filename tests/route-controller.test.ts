@@ -36,6 +36,11 @@ describe('RouteController', () => {
       });
       expect(controller.pendingCount).toBe(0);
     });
+
+    it('should create instance with expectedRequests', () => {
+      controller = new RouteController({ expectedRequests: 2 });
+      expect(controller.pendingCount).toBe(0);
+    });
   });
 
   describe('handle()', () => {
@@ -452,6 +457,107 @@ describe('RouteController', () => {
       await expect(controller.waitForPending(100)).rejects.toThrow(
         'No pending request after 100ms'
       );
+    });
+  });
+
+  describe('expectedRequests option', () => {
+    it('should allow requests up to expected count', async () => {
+      controller = new RouteController({ expectedRequests: 2 });
+      const mockRoute1 = createMockRoute();
+      const mockRoute2 = createMockRoute();
+
+      const handlePromise1 = controller.handle(mockRoute1);
+      const handlePromise2 = controller.handle(mockRoute2);
+
+      expect(controller.pendingCount).toBe(2);
+
+      controller.continueAll();
+      await Promise.all([handlePromise1, handlePromise2]);
+    });
+
+    it('should throw error when exceeding expected request count', async () => {
+      controller = new RouteController({ expectedRequests: 1 });
+      const mockRoute1 = createMockRoute();
+      const mockRoute2 = createMockRoute();
+
+      const handlePromise1 = controller.handle(mockRoute1);
+
+      expect(controller.pendingCount).toBe(1);
+
+      await expect(controller.handle(mockRoute2)).rejects.toThrow(
+        'Expected 1 request(s), but received more. Currently 1 pending request(s).'
+      );
+
+      controller.continue();
+      await handlePromise1;
+    });
+
+    it('should throw error with expectedRequests of 0', async () => {
+      controller = new RouteController({ expectedRequests: 0 });
+      const mockRoute = createMockRoute();
+
+      await expect(controller.handle(mockRoute)).rejects.toThrow(
+        'Expected 0 request(s), but received more. Currently 0 pending request(s).'
+      );
+    });
+
+    it('should not enforce limit when expectedRequests is not set', async () => {
+      controller = new RouteController();
+      const mockRoute1 = createMockRoute();
+      const mockRoute2 = createMockRoute();
+      const mockRoute3 = createMockRoute();
+
+      const handlePromise1 = controller.handle(mockRoute1);
+      const handlePromise2 = controller.handle(mockRoute2);
+      const handlePromise3 = controller.handle(mockRoute3);
+
+      expect(controller.pendingCount).toBe(3);
+
+      controller.continueAll();
+      await Promise.all([handlePromise1, handlePromise2, handlePromise3]);
+    });
+
+    it('should allow new requests after previous ones are resolved', async () => {
+      controller = new RouteController({ expectedRequests: 1 });
+      const mockRoute1 = createMockRoute();
+      const mockRoute2 = createMockRoute();
+
+      const handlePromise1 = controller.handle(mockRoute1);
+      controller.continue();
+      await handlePromise1;
+
+      // Now we can add another request
+      const handlePromise2 = controller.handle(mockRoute2);
+      expect(controller.pendingCount).toBe(1);
+
+      controller.continue();
+      await handlePromise2;
+    });
+
+    it('should work with other options combined', async () => {
+      controller = new RouteController({
+        expectedRequests: 1,
+        method: 'POST',
+      });
+
+      // Non-matching request should not count towards limit
+      const mockRouteGet = createMockRoute({ method: 'GET' });
+      await controller.handle(mockRouteGet);
+      expect(mockRouteGet.continue).toHaveBeenCalled();
+
+      // First matching request should work
+      const mockRoutePost1 = createMockRoute({ method: 'POST' });
+      const handlePromise = controller.handle(mockRoutePost1);
+      expect(controller.pendingCount).toBe(1);
+
+      // Second matching request should throw
+      const mockRoutePost2 = createMockRoute({ method: 'POST' });
+      await expect(controller.handle(mockRoutePost2)).rejects.toThrow(
+        'Expected 1 request(s), but received more.'
+      );
+
+      controller.continue();
+      await handlePromise;
     });
   });
 

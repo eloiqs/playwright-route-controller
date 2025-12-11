@@ -66,11 +66,12 @@ Create a new RouteController instance.
 
 #### Options
 
-| Option    | Type                            | Description                                                                 |
-| --------- | ------------------------------- | --------------------------------------------------------------------------- |
-| `timeout` | `number`                        | Auto-continue pending requests after this many milliseconds.                |
-| `method`  | `HttpMethod`                    | Only intercept requests with this HTTP method. Others are auto-continued.   |
-| `match`   | `(request: Request) => boolean` | Custom match function. Requests that return `false` are auto-continued.     |
+| Option             | Type                            | Description                                                                 |
+| ------------------ | ------------------------------- | --------------------------------------------------------------------------- |
+| `timeout`          | `number`                        | Auto-continue pending requests after this many milliseconds.                |
+| `method`           | `HttpMethod`                    | Only intercept requests with this HTTP method. Others are auto-continued.   |
+| `match`            | `(request: Request) => boolean` | Custom match function. Requests that return `false` are auto-continued.     |
+| `expectedRequests` | `number`                        | Expected number of requests. Throws an error if more requests are pending.  |
 
 **HttpMethod:** `'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'CONNECT' | 'TRACE'`
 
@@ -263,6 +264,25 @@ test('request auto-continues after timeout', async ({ page }) => {
 
   // Request will automatically continue after 1 second
   // Useful for tests where you only want to delay, not block
+});
+```
+
+### Enforce Expected Request Count
+
+```typescript
+test('fails if unexpected requests are made', async ({ page }) => {
+  const controller = new RouteController({ expectedRequests: 1 });
+  await page.route('**/api/save', (route) => controller.handle(route));
+
+  await page.goto('/editor');
+
+  // First save request is expected
+  await page.click('button.save');
+  await controller.waitForPending();
+  controller.continue();
+
+  // If a second request is made, handle() will throw an error
+  // This helps catch bugs like duplicate form submissions
 });
 ```
 

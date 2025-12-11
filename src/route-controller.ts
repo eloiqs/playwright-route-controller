@@ -30,6 +30,8 @@ export interface RouteControllerOptions {
   method?: HttpMethod;
   /** Custom match function for additional request filtering. If the function returns false, the request will be automatically continued. */
   match?: (request: Request) => boolean;
+  /** Expected number of requests. If set, throws an error when more requests than expected are pending. */
+  expectedRequests?: number;
 }
 
 /**
@@ -67,6 +69,17 @@ export class RouteController {
     // Check custom match function
     if (this.config?.match && !this.config.match(route.request())) {
       return route.continue();
+    }
+
+    // Check expected requests limit before adding
+    if (
+      this.config?.expectedRequests !== undefined &&
+      this.pendingRequests.length >= this.config.expectedRequests
+    ) {
+      throw new Error(
+        `Expected ${this.config.expectedRequests} request(s), but received more. ` +
+          `Currently ${this.pendingRequests.length} pending request(s).`
+      );
     }
 
     const request: PendingRequest = {
