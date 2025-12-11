@@ -141,7 +141,9 @@ describe('RouteController', () => {
       controller = new RouteController({
         match: (request) => request.url().includes('/api/'),
       });
-      const mockRoute = createMockRoute({ url: 'https://example.com/api/data' });
+      const mockRoute = createMockRoute({
+        url: 'https://example.com/api/data',
+      });
 
       const handlePromise = controller.handle(mockRoute);
 
@@ -320,9 +322,15 @@ describe('RouteController', () => {
     describe('index selector', () => {
       it('should abort request at specific index', async () => {
         controller = new RouteController();
-        const mockRoute1 = createMockRoute({ url: 'https://example.com/first' });
-        const mockRoute2 = createMockRoute({ url: 'https://example.com/second' });
-        const mockRoute3 = createMockRoute({ url: 'https://example.com/third' });
+        const mockRoute1 = createMockRoute({
+          url: 'https://example.com/first',
+        });
+        const mockRoute2 = createMockRoute({
+          url: 'https://example.com/second',
+        });
+        const mockRoute3 = createMockRoute({
+          url: 'https://example.com/third',
+        });
 
         const handlePromise1 = controller.handle(mockRoute1);
         const handlePromise2 = controller.handle(mockRoute2);
@@ -398,9 +406,15 @@ describe('RouteController', () => {
     describe('predicate selector', () => {
       it('should abort request matching predicate', async () => {
         controller = new RouteController();
-        const mockRoute1 = createMockRoute({ url: 'https://example.com/users' });
-        const mockRoute2 = createMockRoute({ url: 'https://example.com/posts' });
-        const mockRoute3 = createMockRoute({ url: 'https://example.com/comments' });
+        const mockRoute1 = createMockRoute({
+          url: 'https://example.com/users',
+        });
+        const mockRoute2 = createMockRoute({
+          url: 'https://example.com/posts',
+        });
+        const mockRoute3 = createMockRoute({
+          url: 'https://example.com/comments',
+        });
 
         const handlePromise1 = controller.handle(mockRoute1);
         const handlePromise2 = controller.handle(mockRoute2);
@@ -440,8 +454,12 @@ describe('RouteController', () => {
 
       it('should fulfill request matching predicate', async () => {
         controller = new RouteController();
-        const mockRoute1 = createMockRoute({ url: 'https://example.com/api/v1' });
-        const mockRoute2 = createMockRoute({ url: 'https://example.com/api/v2' });
+        const mockRoute1 = createMockRoute({
+          url: 'https://example.com/api/v1',
+        });
+        const mockRoute2 = createMockRoute({
+          url: 'https://example.com/api/v2',
+        });
 
         const handlePromise1 = controller.handle(mockRoute1);
         const handlePromise2 = controller.handle(mockRoute2);
@@ -474,9 +492,15 @@ describe('RouteController', () => {
 
       it('should select first matching request when multiple match', async () => {
         controller = new RouteController();
-        const mockRoute1 = createMockRoute({ url: 'https://example.com/api/1' });
-        const mockRoute2 = createMockRoute({ url: 'https://example.com/api/2' });
-        const mockRoute3 = createMockRoute({ url: 'https://example.com/other' });
+        const mockRoute1 = createMockRoute({
+          url: 'https://example.com/api/1',
+        });
+        const mockRoute2 = createMockRoute({
+          url: 'https://example.com/api/2',
+        });
+        const mockRoute3 = createMockRoute({
+          url: 'https://example.com/other',
+        });
 
         const handlePromise1 = controller.handle(mockRoute1);
         const handlePromise2 = controller.handle(mockRoute2);

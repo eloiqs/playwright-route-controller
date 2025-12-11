@@ -66,12 +66,12 @@ Create a new RouteController instance.
 
 #### Options
 
-| Option             | Type                            | Description                                                                 |
-| ------------------ | ------------------------------- | --------------------------------------------------------------------------- |
-| `timeout`          | `number`                        | Auto-continue pending requests after this many milliseconds.                |
-| `method`           | `HttpMethod`                    | Only intercept requests with this HTTP method. Others are auto-continued.   |
-| `match`            | `(request: Request) => boolean` | Custom match function. Requests that return `false` are auto-continued.     |
-| `expectedRequests` | `number`                        | Expected number of requests. Throws an error if more requests are pending.  |
+| Option             | Type                            | Description                                                                |
+| ------------------ | ------------------------------- | -------------------------------------------------------------------------- |
+| `timeout`          | `number`                        | Auto-continue pending requests after this many milliseconds.               |
+| `method`           | `HttpMethod`                    | Only intercept requests with this HTTP method. Others are auto-continued.  |
+| `match`            | `(request: Request) => boolean` | Custom match function. Requests that return `false` are auto-continued.    |
+| `expectedRequests` | `number`                        | Expected number of requests. Throws an error if more requests are pending. |
 
 **HttpMethod:** `'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'CONNECT' | 'TRACE'`
 
@@ -79,10 +79,10 @@ Create a new RouteController instance.
 
 Several methods accept an optional `selector` parameter to target a specific pending request:
 
-| Selector Type | Description                                                              |
-| ------------- | ------------------------------------------------------------------------ |
-| `number`      | Index into the pending requests array (0 = oldest)                       |
-| `function`    | Predicate function `(request: Request) => boolean` to find the request   |
+| Selector Type | Description                                                            |
+| ------------- | ---------------------------------------------------------------------- |
+| `number`      | Index into the pending requests array (0 = oldest)                     |
+| `function`    | Predicate function `(request: Request) => boolean` to find the request |
 
 If no selector is provided, the oldest pending request (index 0) is used.
 
