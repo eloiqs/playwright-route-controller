@@ -1,9 +1,10 @@
 import type { Route } from '@playwright/test';
 
 type RouteAction =
-  | 'abort'
-  | 'continue'
-  | ['fulfill', Parameters<Route['fulfill']>[0]];
+  | ['abort', Parameters<Route['abort']>]
+  | ['continue', Parameters<Route['continue']>]
+  | ['fulfill', Parameters<Route['fulfill']>]
+  | ['fallback', Parameters<Route['fallback']>];
 
 interface PendingRequest {
   resolve: (action: RouteAction) => void;
@@ -12,14 +13,12 @@ interface PendingRequest {
 }
 
 export interface RouteControllerOptions {
-  /** HTTP method to intercept (e.g., 'POST', 'GET'). If not set, intercepts all methods. */
-  method?: string;
   /** Timeout in milliseconds. If set, pending requests will auto-continue after timeout. */
   timeout?: number;
 }
 
 /**
- * Controls network requests for testing optimistic updates and error scenarios.
+ * A Playwright utility for controlling network requests - intercept, abort, continue, and fulfill requests with ease.
  *
  * @example
  * ```ts
@@ -38,21 +37,13 @@ export class RouteController {
   private pendingRequests: PendingRequest[] = [];
   private timeoutIds: Map<PendingRequest, NodeJS.Timeout> = new Map();
 
-  constructor(private readonly options?: RouteControllerOptions) {}
+  constructor(private readonly config?: RouteControllerOptions) {}
 
   /**
    * Handle an intercepted route. Call this from page.route() callback.
    * Non-matching methods (if options.method is set) are automatically continued.
    */
   async handle(route: Route): Promise<void> {
-    // If method filter is set and doesn't match, continue immediately
-    if (
-      this.options?.method &&
-      route.request().method() !== this.options.method
-    ) {
-      return route.continue();
-    }
-
     const request: PendingRequest = {
       resolve: () => {},
       route,
@@ -66,15 +57,15 @@ export class RouteController {
     this.pendingRequests.push(request);
 
     // Set up timeout if configured
-    if (this.options?.timeout) {
+    if (this.config?.timeout) {
       const timeoutId = setTimeout(() => {
         this.timeoutIds.delete(request);
-        request.resolve('continue');
-      }, this.options.timeout);
+        request.resolve(['continue', []]);
+      }, this.config.timeout);
       this.timeoutIds.set(request, timeoutId);
     }
 
-    const action = await actionPromise;
+    const [action, args] = await actionPromise;
 
     // Clean up timeout if it exists
     const timeoutId = this.timeoutIds.get(request);
@@ -89,26 +80,129 @@ export class RouteController {
       this.pendingRequests.splice(index, 1);
     }
 
-    if (action === 'abort') {
-      await route.abort('failed');
-    } else if (action === 'continue') {
-      await route.continue();
-    } else {
-      const [method, args] = action;
-      if (method === 'fulfill') {
-        await route.fulfill(args);
-      }
+    switch (action) {
+      case 'abort':
+        await route.abort(...args);
+        break;
+      case 'continue':
+        await route.continue(...args);
+        break;
+      case 'fulfill':
+        await route.fulfill(...args);
+        break;
+      case 'fallback':
+        await route.fallback(...args);
+        break;
     }
+  }
+
+  /**
+   * Handle an intercepted get request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  get(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'GET')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted post request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  post(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'POST')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted put request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  put(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'PUT')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted delete request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  delete(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'DELETE')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted patch request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  patch(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'PATCH')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted head request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  head(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'HEAD')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted connect request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  connect(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'CONNECT')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted trace request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  trace(route: Route): Promise<void> {
+    if (!this.isMethodMatch(route, 'TRACE')) {
+      return route.continue();
+    }
+    return this.handle(route);
+  }
+
+  /**
+   * Handle an intercepted options request. Call this from page.route() callback.
+   * Non-matching methods are automatically continued.
+   */
+  options(route: Route): Promise<void> {
+    if (this.isMethodMatch(route, 'OPTIONS')) {
+      return this.handle(route);
+    }
+    return route.continue();
   }
 
   /**
    * Abort the oldest pending request.
    * @returns true if a request was aborted, false if no pending requests
    */
-  abort(): boolean {
+  abort(...args: Parameters<Route['abort']>): boolean {
     const request = this.pendingRequests[0];
     if (request) {
-      request.resolve('abort');
+      request.resolve(['abort', args]);
       return true;
     }
     return false;
@@ -118,19 +212,36 @@ export class RouteController {
    * Continue the oldest pending request.
    * @returns true if a request was continued, false if no pending requests
    */
-  continue(): boolean {
+  continue(...args: Parameters<Route['continue']>): boolean {
     const request = this.pendingRequests[0];
     if (request) {
-      request.resolve('continue');
+      request.resolve(['continue', args]);
       return true;
     }
     return false;
   }
 
-  fulfill(response: Parameters<Route['fulfill']>[0]): boolean {
+  /**
+   * Fulfill the oldest pending request.
+   * @returns true if a request was fulfilled, false if no pending requests
+   */
+  fulfill(...args: Parameters<Route['fulfill']>): boolean {
     const request = this.pendingRequests[0];
     if (request) {
-      request.resolve(['fulfill', response]);
+      request.resolve(['fulfill', args]);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Fallback the oldest pending request.
+   * @returns true if a request was fallbacked, false if no pending requests
+   */
+  fallback(...args: Parameters<Route['fallback']>): boolean {
+    const request = this.pendingRequests[0];
+    if (request) {
+      request.resolve(['fallback', args]);
       return true;
     }
     return false;
@@ -143,7 +254,7 @@ export class RouteController {
   abortAll(): number {
     const count = this.pendingRequests.length;
     for (const request of [...this.pendingRequests]) {
-      request.resolve('abort');
+      request.resolve(['abort', []]);
     }
     return count;
   }
@@ -155,7 +266,7 @@ export class RouteController {
   continueAll(): number {
     const count = this.pendingRequests.length;
     for (const request of [...this.pendingRequests]) {
-      request.resolve('continue');
+      request.resolve(['continue', []]);
     }
     return count;
   }
@@ -200,5 +311,21 @@ export class RouteController {
     }
     this.timeoutIds.clear();
     this.pendingRequests = [];
+  }
+
+  private isMethodMatch(
+    route: Route,
+    method:
+      | 'GET'
+      | 'POST'
+      | 'PUT'
+      | 'DELETE'
+      | 'PATCH'
+      | 'HEAD'
+      | 'OPTIONS'
+      | 'CONNECT'
+      | 'TRACE'
+  ): boolean {
+    return route.request().method() === method;
   }
 }

@@ -59,11 +59,11 @@ test('test optimistic updates with network failure', async ({ page }) => {
 
 ## API Reference
 
-### `new RouteController(options?)`
+### `new RouteController(config?)`
 
 Create a new RouteController instance.
 
-#### Options
+#### Config
 
 | Option    | Type     | Description                                                              |
 | --------- | -------- | ------------------------------------------------------------------------ |
@@ -77,8 +77,6 @@ Handle an intercepted route. Call this from `page.route()` callback.
 ```typescript
 await page.route('**/api/**', (route) => controller.handle(route));
 ```
-
-Non-matching methods (when `options.method` is set) are automatically continued.
 
 ### `controller.abort()`
 
@@ -107,6 +105,96 @@ controller.fulfill({
   body: JSON.stringify({ success: true }),
 });
 ```
+
+### `controller.get(route)`
+
+Handle an intercepted get request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.get(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.post(route)`
+
+Handle an intercepted post request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.post(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.put(route)`
+
+Handle an intercepted put request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.put(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.delete(route)`
+
+Handle an intercepted delete request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.delete(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.patch(route)`
+
+Handle an intercepted patch request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.patch(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.head(route)`
+
+Handle an intercepted head request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.head(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.connect(route)`
+
+Handle an intercepted connect request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.connect(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.trace(route)`
+
+Handle an intercepted trace request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.trace(route));
+```
+
+Non-matching methods are automatically continued.
+
+### `controller.options(route)`
+
+Handle an intercepted options request. Call this from `page.route()` callback.
+
+```typescript
+await page.route('**/api/**', (route) => controller.options(route));
+```
+
+Non-matching methods are automatically continued.
 
 ### `controller.abortAll()`
 
