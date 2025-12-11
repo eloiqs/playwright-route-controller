@@ -33,10 +33,10 @@ import { test, expect } from '@playwright/test';
 import { RouteController } from 'playwright-route-controller';
 
 test('test optimistic updates with network failure', async ({ page }) => {
-  const controller = new RouteController({ method: 'POST' });
+  const controller = new RouteController();
 
   // Set up route interception
-  await page.route('**/api/messages', (route) => controller.handle(route));
+  await page.route('**/api/messages', (route) => controller.post(route));
 
   await page.goto('https://example.com');
 
@@ -65,10 +65,9 @@ Create a new RouteController instance.
 
 #### Config
 
-| Option    | Type     | Description                                                              |
-| --------- | -------- | ------------------------------------------------------------------------ |
-| `method`  | `string` | HTTP method to intercept (e.g., 'POST', 'GET'). Intercepts all if unset. |
-| `timeout` | `number` | Auto-continue pending requests after this many milliseconds.             |
+| Option    | Type     | Description                                                  |
+| --------- | -------- | ------------------------------------------------------------ |
+| `timeout` | `number` | Auto-continue pending requests after this many milliseconds. |
 
 ### `controller.handle(route)`
 
@@ -254,7 +253,7 @@ test.afterEach(async () => {
 
 ```typescript
 test('optimistic update rolls back on failure', async ({ page }) => {
-  const controller = new RouteController({ method: 'POST' });
+  const controller = new RouteController();
   await page.route('**/api/todos', (route) => controller.handle(route));
 
   await page.goto('/todos');
