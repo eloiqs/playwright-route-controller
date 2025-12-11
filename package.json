@@ -90,10 +90,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/playwright-route-controller.git"
+    "url": "git+https://github.com/eloiqs/playwright-route-controller.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/playwright-route-controller/issues"
+    "url": "https://github.com/eloiqs/playwright-route-controller/issues"
   },
-  "homepage": "https://github.com/yourusername/playwright-route-controller#readme"
+  "homepage": "https://github.com/eloiqs/playwright-route-controller#readme"
 }
