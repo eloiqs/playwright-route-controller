@@ -10,6 +10,7 @@ A Playwright utility for controlling network requests - intercept, abort, contin
 
 - **Simple API** - Queue and control intercepted requests manually
 - **Method filtering** - Intercept only specific HTTP methods (GET, POST, etc.)
+- **Custom matching** - Filter requests with custom match functions
 - **Timeout support** - Auto-continue requests after a configurable timeout
 - **Full TypeScript support** - Complete type definitions included
 - **ESM & CJS** - Works with both module systems
@@ -33,10 +34,10 @@ import { test, expect } from '@playwright/test';
 import { RouteController } from 'playwright-route-controller';
 
 test('test optimistic updates with network failure', async ({ page }) => {
-  const controller = new RouteController();
+  const controller = new RouteController({ method: 'POST' });
 
   // Set up route interception
-  await page.route('**/api/messages', (route) => controller.post(route));
+  await page.route('**/api/messages', (route) => controller.handle(route));
 
   await page.goto('https://example.com');
 
@@ -59,15 +60,31 @@ test('test optimistic updates with network failure', async ({ page }) => {
 
 ## API Reference
 
-### `new RouteController(config?)`
+### `new RouteController(options?)`
 
 Create a new RouteController instance.
 
-#### Config
+#### Options
 
-| Option    | Type     | Description                                                  |
-| --------- | -------- | ------------------------------------------------------------ |
-| `timeout` | `number` | Auto-continue pending requests after this many milliseconds. |
+| Option             | Type                            | Description                                                                |
+| ------------------ | ------------------------------- | -------------------------------------------------------------------------- |
+| `timeout`          | `number`                        | Auto-continue pending requests after this many milliseconds.               |
+| `method`           | `HttpMethod`                    | Only intercept requests with this HTTP method. Others are auto-continued.  |
+| `match`            | `(request: Request) => boolean` | Custom match function. Requests that return `false` are auto-continued.    |
+| `expectedRequests` | `number`                        | Expected number of requests. Throws an error if more requests are pending. |
+
+**HttpMethod:** `'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'CONNECT' | 'TRACE'`
+
+#### Request Selector
+
+Several methods accept an optional `selector` parameter to target a specific pending request:
+
+| Selector Type | Description                                                            |
+| ------------- | ---------------------------------------------------------------------- |
+| `number`      | Index into the pending requests array (0 = oldest)                     |
+| `function`    | Predicate function `(request: Request) => boolean` to find the request |
+
+If no selector is provided, the oldest pending request (index 0) is used.
 
 ### `controller.handle(route)`
 
@@ -77,123 +94,47 @@ Handle an intercepted route. Call this from `page.route()` callback.
 await page.route('**/api/**', (route) => controller.handle(route));
 ```
 
-### `controller.abort()`
+### `controller.abort(errorCode?, selector?)`
 
-Abort the oldest pending request.
-
-```typescript
-const aborted = controller.abort(); // Returns true if a request was aborted
-```
-
-### `controller.continue()`
-
-Continue the oldest pending request.
+Abort a pending request.
 
 ```typescript
-const continued = controller.continue(); // Returns true if a request was continued
+controller.abort(); // Abort oldest request
+controller.abort('connectionrefused'); // Abort with error code
+controller.abort(undefined, 1); // Abort request at index 1
+controller.abort(undefined, (req) => req.url().includes('/users')); // Abort by predicate
 ```
 
-### `controller.fulfill(response)`
+### `controller.continue(overrides?, selector?)`
 
-Fulfill the oldest pending request with a custom response.
+Continue a pending request.
 
 ```typescript
-controller.fulfill({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({ success: true }),
-});
+controller.continue(); // Continue oldest request
+controller.continue({ headers: { 'X-Custom': 'value' } }); // Continue with overrides
+controller.continue(undefined, 1); // Continue request at index 1
+controller.continue(undefined, (req) => req.method() === 'POST'); // Continue by predicate
 ```
 
-### `controller.get(route)`
+### `controller.fulfill(response, selector?)`
 
-Handle an intercepted get request. Call this from `page.route()` callback.
+Fulfill a pending request with a custom response.
 
 ```typescript
-await page.route('**/api/**', (route) => controller.get(route));
+controller.fulfill({ status: 200, body: 'OK' }); // Fulfill oldest request
+controller.fulfill({ status: 404 }, 1); // Fulfill request at index 1
+controller.fulfill({ status: 200 }, (req) => req.url().includes('/api')); // Fulfill by predicate
 ```
 
-Non-matching methods are automatically continued.
+### `controller.fallback(overrides?, selector?)`
 
-### `controller.post(route)`
-
-Handle an intercepted post request. Call this from `page.route()` callback.
+Fallback a pending request to the next route handler.
 
 ```typescript
-await page.route('**/api/**', (route) => controller.post(route));
+controller.fallback(); // Fallback oldest request
+controller.fallback(undefined, 1); // Fallback request at index 1
+controller.fallback(undefined, (req) => req.url().includes('/legacy')); // Fallback by predicate
 ```
-
-Non-matching methods are automatically continued.
-
-### `controller.put(route)`
-
-Handle an intercepted put request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.put(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.delete(route)`
-
-Handle an intercepted delete request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.delete(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.patch(route)`
-
-Handle an intercepted patch request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.patch(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.head(route)`
-
-Handle an intercepted head request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.head(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.connect(route)`
-
-Handle an intercepted connect request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.connect(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.trace(route)`
-
-Handle an intercepted trace request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.trace(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.options(route)`
-
-Handle an intercepted options request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.options(route));
-```
-
-Non-matching methods are automatically continued.
 
 ### `controller.abortAll()`
 
@@ -249,11 +190,52 @@ test.afterEach(async () => {
 
 ## Examples
 
+### Filter by HTTP Method
+
+```typescript
+test('intercept only POST requests', async ({ page }) => {
+  const controller = new RouteController({ method: 'POST' });
+  await page.route('**/api/**', (route) => controller.handle(route));
+
+  // GET requests will pass through automatically
+  // Only POST requests will be intercepted
+});
+```
+
+### Custom Match Function
+
+```typescript
+test('intercept requests for specific resource', async ({ page }) => {
+  const targetId = '12345';
+  const controller = new RouteController({
+    match: (request) => request.url().includes(targetId),
+  });
+  await page.route('**/api/items/*', (route) => controller.handle(route));
+
+  // Only requests to /api/items/12345 will be intercepted
+  // Requests to /api/items/67890 will pass through
+});
+```
+
+### Combine Method and Match Filters
+
+```typescript
+test('intercept POST requests to specific endpoint', async ({ page }) => {
+  const controller = new RouteController({
+    method: 'POST',
+    match: (request) => request.url().includes('/api/users'),
+  });
+  await page.route('**/*', (route) => controller.handle(route));
+
+  // Only POST requests to URLs containing '/api/users' will be intercepted
+});
+```
+
 ### Testing Optimistic Updates
 
 ```typescript
 test('optimistic update rolls back on failure', async ({ page }) => {
-  const controller = new RouteController();
+  const controller = new RouteController({ method: 'POST' });
   await page.route('**/api/todos', (route) => controller.handle(route));
 
   await page.goto('/todos');
@@ -307,6 +289,53 @@ test('request auto-continues after timeout', async ({ page }) => {
 
   // Request will automatically continue after 1 second
   // Useful for tests where you only want to delay, not block
+});
+```
+
+### Enforce Expected Request Count
+
+```typescript
+test('fails if unexpected requests are made', async ({ page }) => {
+  const controller = new RouteController({ expectedRequests: 1 });
+  await page.route('**/api/save', (route) => controller.handle(route));
+
+  await page.goto('/editor');
+
+  // First save request is expected
+  await page.click('button.save');
+  await controller.waitForPending();
+  controller.continue();
+
+  // If a second request is made, handle() will throw an error
+  // This helps catch bugs like duplicate form submissions
+});
+```
+
+### Targeting Specific Requests with Selectors
+
+```typescript
+test('handle multiple concurrent requests differently', async ({ page }) => {
+  const controller = new RouteController();
+  await page.route('**/api/**', (route) => controller.handle(route));
+
+  await page.goto('/dashboard');
+
+  // Multiple requests are made concurrently
+  // e.g., /api/users, /api/posts, /api/notifications
+
+  await controller.waitForPending();
+
+  // Fulfill the users request with mock data
+  controller.fulfill(
+    { status: 200, body: JSON.stringify([{ id: 1, name: 'Alice' }]) },
+    (req) => req.url().includes('/users')
+  );
+
+  // Abort the notifications request to test error handling
+  controller.abort(undefined, (req) => req.url().includes('/notifications'));
+
+  // Continue the posts request normally
+  controller.continue(undefined, (req) => req.url().includes('/posts'));
 });
 ```
 
