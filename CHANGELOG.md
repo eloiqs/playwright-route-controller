@@ -1,5 +1,11 @@
 # playwright-route-controller
 
+## 0.2.2
+
+### Patch Changes
+
+- 40cf17e: test
+
 ## 0.2.1
 
 ### Patch Changes
