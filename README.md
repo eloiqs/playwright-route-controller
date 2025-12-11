@@ -10,6 +10,7 @@ A Playwright utility for controlling network requests - intercept, abort, contin
 
 - **Simple API** - Queue and control intercepted requests manually
 - **Method filtering** - Intercept only specific HTTP methods (GET, POST, etc.)
+- **Custom matching** - Filter requests with custom match functions
 - **Timeout support** - Auto-continue requests after a configurable timeout
 - **Full TypeScript support** - Complete type definitions included
 - **ESM & CJS** - Works with both module systems
@@ -33,10 +34,10 @@ import { test, expect } from '@playwright/test';
 import { RouteController } from 'playwright-route-controller';
 
 test('test optimistic updates with network failure', async ({ page }) => {
-  const controller = new RouteController();
+  const controller = new RouteController({ method: 'POST' });
 
   // Set up route interception
-  await page.route('**/api/messages', (route) => controller.post(route));
+  await page.route('**/api/messages', (route) => controller.handle(route));
 
   await page.goto('https://example.com');
 
@@ -59,15 +60,19 @@ test('test optimistic updates with network failure', async ({ page }) => {
 
 ## API Reference
 
-### `new RouteController(config?)`
+### `new RouteController(options?)`
 
 Create a new RouteController instance.
 
-#### Config
+#### Options
 
-| Option    | Type     | Description                                                  |
-| --------- | -------- | ------------------------------------------------------------ |
-| `timeout` | `number` | Auto-continue pending requests after this many milliseconds. |
+| Option    | Type                            | Description                                                                 |
+| --------- | ------------------------------- | --------------------------------------------------------------------------- |
+| `timeout` | `number`                        | Auto-continue pending requests after this many milliseconds.                |
+| `method`  | `HttpMethod`                    | Only intercept requests with this HTTP method. Others are auto-continued.   |
+| `match`   | `(request: Request) => boolean` | Custom match function. Requests that return `false` are auto-continued.     |
+
+**HttpMethod:** `'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'CONNECT' | 'TRACE'`
 
 ### `controller.handle(route)`
 
@@ -104,96 +109,6 @@ controller.fulfill({
   body: JSON.stringify({ success: true }),
 });
 ```
-
-### `controller.get(route)`
-
-Handle an intercepted get request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.get(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.post(route)`
-
-Handle an intercepted post request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.post(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.put(route)`
-
-Handle an intercepted put request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.put(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.delete(route)`
-
-Handle an intercepted delete request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.delete(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.patch(route)`
-
-Handle an intercepted patch request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.patch(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.head(route)`
-
-Handle an intercepted head request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.head(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.connect(route)`
-
-Handle an intercepted connect request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.connect(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.trace(route)`
-
-Handle an intercepted trace request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.trace(route));
-```
-
-Non-matching methods are automatically continued.
-
-### `controller.options(route)`
-
-Handle an intercepted options request. Call this from `page.route()` callback.
-
-```typescript
-await page.route('**/api/**', (route) => controller.options(route));
-```
-
-Non-matching methods are automatically continued.
 
 ### `controller.abortAll()`
 
@@ -249,11 +164,52 @@ test.afterEach(async () => {
 
 ## Examples
 
+### Filter by HTTP Method
+
+```typescript
+test('intercept only POST requests', async ({ page }) => {
+  const controller = new RouteController({ method: 'POST' });
+  await page.route('**/api/**', (route) => controller.handle(route));
+
+  // GET requests will pass through automatically
+  // Only POST requests will be intercepted
+});
+```
+
+### Custom Match Function
+
+```typescript
+test('intercept requests for specific resource', async ({ page }) => {
+  const targetId = '12345';
+  const controller = new RouteController({
+    match: (request) => request.url().includes(targetId),
+  });
+  await page.route('**/api/items/*', (route) => controller.handle(route));
+
+  // Only requests to /api/items/12345 will be intercepted
+  // Requests to /api/items/67890 will pass through
+});
+```
+
+### Combine Method and Match Filters
+
+```typescript
+test('intercept POST requests to specific endpoint', async ({ page }) => {
+  const controller = new RouteController({
+    method: 'POST',
+    match: (request) => request.url().includes('/api/users'),
+  });
+  await page.route('**/*', (route) => controller.handle(route));
+
+  // Only POST requests to URLs containing '/api/users' will be intercepted
+});
+```
+
 ### Testing Optimistic Updates
 
 ```typescript
 test('optimistic update rolls back on failure', async ({ page }) => {
-  const controller = new RouteController();
+  const controller = new RouteController({ method: 'POST' });
   await page.route('**/api/todos', (route) => controller.handle(route));
 
   await page.goto('/todos');

@@ -24,6 +24,18 @@ describe('RouteController', () => {
       controller = new RouteController({ timeout: 5000 });
       expect(controller.pendingCount).toBe(0);
     });
+
+    it('should create instance with method filter', () => {
+      controller = new RouteController({ method: 'POST' });
+      expect(controller.pendingCount).toBe(0);
+    });
+
+    it('should create instance with match function', () => {
+      controller = new RouteController({
+        match: (request) => request.url().includes('/api/'),
+      });
+      expect(controller.pendingCount).toBe(0);
+    });
   });
 
   describe('handle()', () => {
@@ -43,12 +55,12 @@ describe('RouteController', () => {
     });
   });
 
-  describe('get()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
+  describe('method filter', () => {
+    it('should add request to pending when method matches', async () => {
+      controller = new RouteController({ method: 'GET' });
       const mockRoute = createMockRoute({ method: 'GET' });
 
-      const handlePromise = controller.get(mockRoute);
+      const handlePromise = controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(1);
 
@@ -59,22 +71,20 @@ describe('RouteController', () => {
     });
 
     it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
+      controller = new RouteController({ method: 'GET' });
       const mockRoute = createMockRoute({ method: 'POST' });
 
-      controller.get(mockRoute);
+      await controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(0);
       expect(mockRoute.continue).toHaveBeenCalled();
     });
-  });
 
-  describe('post()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
+    it('should filter POST requests', async () => {
+      controller = new RouteController({ method: 'POST' });
       const mockRoute = createMockRoute({ method: 'POST' });
 
-      const handlePromise = controller.post(mockRoute);
+      const handlePromise = controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(1);
 
@@ -84,127 +94,51 @@ describe('RouteController', () => {
       expect(controller.pendingCount).toBe(0);
     });
 
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'GET' });
-
-      controller.post(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
-    });
-  });
-
-  describe('put()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
+    it('should filter PUT requests', async () => {
+      controller = new RouteController({ method: 'PUT' });
       const mockRoute = createMockRoute({ method: 'PUT' });
 
-      const handlePromise = controller.put(mockRoute);
+      const handlePromise = controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(1);
 
       controller.continue();
       await handlePromise;
-
-      expect(controller.pendingCount).toBe(0);
     });
 
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
-
-      controller.put(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
-    });
-  });
-
-  describe('delete()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
+    it('should filter DELETE requests', async () => {
+      controller = new RouteController({ method: 'DELETE' });
       const mockRoute = createMockRoute({ method: 'DELETE' });
 
-      const handlePromise = controller.delete(mockRoute);
+      const handlePromise = controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(1);
 
       controller.continue();
       await handlePromise;
-
-      expect(controller.pendingCount).toBe(0);
     });
 
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
-
-      controller.delete(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
-    });
-  });
-
-  describe('patch()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
+    it('should filter PATCH requests', async () => {
+      controller = new RouteController({ method: 'PATCH' });
       const mockRoute = createMockRoute({ method: 'PATCH' });
 
-      const handlePromise = controller.patch(mockRoute);
+      const handlePromise = controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(1);
 
       controller.continue();
       await handlePromise;
-
-      expect(controller.pendingCount).toBe(0);
-    });
-
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
-
-      controller.patch(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
     });
   });
 
-  describe('head()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'HEAD' });
+  describe('match function', () => {
+    it('should add request to pending when match returns true', async () => {
+      controller = new RouteController({
+        match: (request) => request.url().includes('/api/'),
+      });
+      const mockRoute = createMockRoute({ url: 'https://example.com/api/data' });
 
-      const handlePromise = controller.head(mockRoute);
-
-      expect(controller.pendingCount).toBe(1);
-
-      controller.continue();
-      await handlePromise;
-
-      expect(controller.pendingCount).toBe(0);
-    });
-
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
-
-      controller.head(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
-    });
-  });
-
-  describe('connect()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'CONNECT' });
-
-      const handlePromise = controller.connect(mockRoute);
+      const handlePromise = controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(1);
 
@@ -214,66 +148,75 @@ describe('RouteController', () => {
       expect(controller.pendingCount).toBe(0);
     });
 
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
+    it('should continue immediately when match returns false', async () => {
+      controller = new RouteController({
+        match: (request) => request.url().includes('/api/'),
+      });
+      const mockRoute = createMockRoute({ url: 'https://example.com/other' });
 
-      controller.connect(mockRoute);
+      await controller.handle(mockRoute);
 
       expect(controller.pendingCount).toBe(0);
       expect(mockRoute.continue).toHaveBeenCalled();
     });
-  });
 
-  describe('trace()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'TRACE' });
+    it('should work with method filter combined', async () => {
+      controller = new RouteController({
+        method: 'POST',
+        match: (request) => request.url().includes('/api/'),
+      });
 
-      const handlePromise = controller.trace(mockRoute);
-
+      // Both method and match pass
+      const mockRoute1 = createMockRoute({
+        method: 'POST',
+        url: 'https://example.com/api/data',
+      });
+      const handlePromise1 = controller.handle(mockRoute1);
       expect(controller.pendingCount).toBe(1);
+      controller.continue();
+      await handlePromise1;
 
+      // Method fails
+      const mockRoute2 = createMockRoute({
+        method: 'GET',
+        url: 'https://example.com/api/data',
+      });
+      await controller.handle(mockRoute2);
+      expect(controller.pendingCount).toBe(0);
+      expect(mockRoute2.continue).toHaveBeenCalled();
+
+      // Match fails
+      const mockRoute3 = createMockRoute({
+        method: 'POST',
+        url: 'https://example.com/other',
+      });
+      await controller.handle(mockRoute3);
+      expect(controller.pendingCount).toBe(0);
+      expect(mockRoute3.continue).toHaveBeenCalled();
+    });
+
+    it('should allow filtering by request ID in URL', async () => {
+      const targetId = '12345';
+      controller = new RouteController({
+        match: (request) => request.url().includes(targetId),
+      });
+
+      // Matches
+      const mockRoute1 = createMockRoute({
+        url: `https://example.com/api/items/${targetId}`,
+      });
+      const handlePromise = controller.handle(mockRoute1);
+      expect(controller.pendingCount).toBe(1);
       controller.continue();
       await handlePromise;
 
+      // Does not match
+      const mockRoute2 = createMockRoute({
+        url: 'https://example.com/api/items/67890',
+      });
+      await controller.handle(mockRoute2);
       expect(controller.pendingCount).toBe(0);
-    });
-
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
-
-      controller.trace(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
-    });
-  });
-
-  describe('options()', () => {
-    it('should add request to pending', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'OPTIONS' });
-
-      const handlePromise = controller.options(mockRoute);
-
-      expect(controller.pendingCount).toBe(1);
-
-      controller.continue();
-      await handlePromise;
-
-      expect(controller.pendingCount).toBe(0);
-    });
-
-    it('should continue immediately when method does not match', async () => {
-      controller = new RouteController();
-      const mockRoute = createMockRoute({ method: 'POST' });
-
-      controller.options(mockRoute);
-
-      expect(controller.pendingCount).toBe(0);
-      expect(mockRoute.continue).toHaveBeenCalled();
+      expect(mockRoute2.continue).toHaveBeenCalled();
     });
   });
 

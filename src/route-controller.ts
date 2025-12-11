@@ -1,10 +1,21 @@
-import type { Route } from '@playwright/test';
+import type { Route, Request } from '@playwright/test';
 
 type RouteAction =
   | ['abort', Parameters<Route['abort']>]
   | ['continue', Parameters<Route['continue']>]
   | ['fulfill', Parameters<Route['fulfill']>]
   | ['fallback', Parameters<Route['fallback']>];
+
+type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'CONNECT'
+  | 'TRACE';
 
 interface PendingRequest {
   resolve: (action: RouteAction) => void;
@@ -15,6 +26,10 @@ interface PendingRequest {
 export interface RouteControllerOptions {
   /** Timeout in milliseconds. If set, pending requests will auto-continue after timeout. */
   timeout?: number;
+  /** HTTP method to filter requests. If set, only requests with this method will be handled. */
+  method?: HttpMethod;
+  /** Custom match function for additional request filtering. If the function returns false, the request will be automatically continued. */
+  match?: (request: Request) => boolean;
 }
 
 /**
@@ -41,9 +56,19 @@ export class RouteController {
 
   /**
    * Handle an intercepted route. Call this from page.route() callback.
-   * Non-matching methods (if options.method is set) are automatically continued.
+   * Non-matching requests (based on method and match options) are automatically continued.
    */
   async handle(route: Route): Promise<void> {
+    // Check method filter
+    if (this.config?.method && route.request().method() !== this.config.method) {
+      return route.continue();
+    }
+
+    // Check custom match function
+    if (this.config?.match && !this.config.match(route.request())) {
+      return route.continue();
+    }
+
     const request: PendingRequest = {
       resolve: () => {},
       route,
@@ -94,105 +119,6 @@ export class RouteController {
         await route.fallback(...args);
         break;
     }
-  }
-
-  /**
-   * Handle an intercepted get request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  get(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'GET')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted post request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  post(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'POST')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted put request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  put(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'PUT')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted delete request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  delete(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'DELETE')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted patch request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  patch(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'PATCH')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted head request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  head(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'HEAD')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted connect request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  connect(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'CONNECT')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted trace request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  trace(route: Route): Promise<void> {
-    if (!this.isMethodMatch(route, 'TRACE')) {
-      return route.continue();
-    }
-    return this.handle(route);
-  }
-
-  /**
-   * Handle an intercepted options request. Call this from page.route() callback.
-   * Non-matching methods are automatically continued.
-   */
-  options(route: Route): Promise<void> {
-    if (this.isMethodMatch(route, 'OPTIONS')) {
-      return this.handle(route);
-    }
-    return route.continue();
   }
 
   /**
@@ -311,21 +237,5 @@ export class RouteController {
     }
     this.timeoutIds.clear();
     this.pendingRequests = [];
-  }
-
-  private isMethodMatch(
-    route: Route,
-    method:
-      | 'GET'
-      | 'POST'
-      | 'PUT'
-      | 'DELETE'
-      | 'PATCH'
-      | 'HEAD'
-      | 'OPTIONS'
-      | 'CONNECT'
-      | 'TRACE'
-  ): boolean {
-    return route.request().method() === method;
   }
 }
