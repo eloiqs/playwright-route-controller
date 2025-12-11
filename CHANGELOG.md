@@ -1,5 +1,13 @@
 # playwright-route-controller
 
+## 0.3.0
+
+### Minor Changes
+
+- 8b3a91a: Add `expectedRequests` option to enforce request count limits and throw an error when exceeded.
+
+  Add `RequestSelector` support to `abort()`, `continue()`, `fulfill()`, and `fallback()` methods, allowing targeting of specific pending requests by index or predicate function instead of only the oldest request.
+
 ## 0.2.3
 
 ### Patch Changes

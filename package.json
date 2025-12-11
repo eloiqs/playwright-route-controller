@@ -1,6 +1,6 @@
 {
   "name": "playwright-route-controller",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "A Playwright utility for controlling network requests in tests - intercept, abort, continue, and fulfill requests with ease",
   "type": "module",
   "main": "./dist/index.cjs",
