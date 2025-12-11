@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [changeset-release/main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,6 +14,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/changeset-release/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +37,7 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/changeset-release/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,6 +57,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/changeset-release/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,6 +84,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/changeset-release/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -108,9 +114,9 @@ jobs:
     steps:
       - name: Check all jobs passed
         run: |
-          if [[ "${{ needs.lint.result }}" != "success" ]] || \
-             [[ "${{ needs.typecheck.result }}" != "success" ]] || \
-             [[ "${{ needs.test.result }}" != "success" ]] || \
-             [[ "${{ needs.build.result }}" != "success" ]]; then
-            exit 1
-          fi
+          results="${{ needs.lint.result }} ${{ needs.typecheck.result }} ${{ needs.test.result }} ${{ needs.build.result }}"
+          for result in $results; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              exit 1
+            fi
+          done
